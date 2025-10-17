@@ -1,26 +1,71 @@
-const form = document.getElementById('chat-form');
-const input = document.getElementById('user-input');
-const chatBox = document.getElementById('chat-box');
+document.addEventListener("DOMContentLoaded", () => {
+  const chatBox = document.getElementById("chat-box");
+  const chatForm = document.getElementById("chat-form");
+  const userInput = document.getElementById("user-input");
 
-form.addEventListener('submit', function (e) {
-  e.preventDefault();
+  let conversationHistory = [];
 
-  const userMessage = input.value.trim();
-  if (!userMessage) return;
+  // Function to append a message to the chat box
+  const appendMessage = (role, content) => {
+    const messageElement = document.createElement("div");
+    messageElement.classList.add("message", `${role}-message`);
+    messageElement.textContent = content;
+    chatBox.appendChild(messageElement);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return messageElement;
+  };
 
-  appendMessage('user', userMessage);
-  input.value = '';
+  // Function to add a message to the conversation history
+  const addMessageToHistory = (role, text) => {
+    conversationHistory.push({ role, text });
+  };
 
-  // Simulasi dummy balasan bot (placeholder)
-  setTimeout(() => {
-    appendMessage('bot', 'Gemini is thinking... (this is dummy response)');
-  }, 1000);
+  // Function to handle form submission
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    const message = userInput.value.trim();
+
+    if (!message) {
+      return;
+    }
+
+    // Add user message to chat box and history
+    appendMessage("user", message);
+    addMessageToHistory("user", message);
+    userInput.value = "";
+
+    // Show "Thinking..." message
+    const thinkingMessage = appendMessage("bot", "Thinking...");
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversation: conversationHistory,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get response from server.");
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        // Replace "Thinking..." with the actual response
+        thinkingMessage.textContent = result.data;
+        addMessageToHistory("bot", result.data);
+      } else {
+        throw new Error(result.message || "Sorry, no response received.");
+      }
+    } catch (error) {
+      // Replace "Thinking..." with an error message
+      thinkingMessage.textContent = error.message;
+    }
+  };
+
+  chatForm.addEventListener("submit", handleFormSubmit);
 });
-
-function appendMessage(sender, text) {
-  const msg = document.createElement('div');
-  msg.classList.add('message', sender);
-  msg.textContent = text;
-  chatBox.appendChild(msg);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
